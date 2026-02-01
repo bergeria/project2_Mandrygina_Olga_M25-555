@@ -1,11 +1,13 @@
 #
 
+from engine import run
 
 
 def main() :
 
     print('DB project is running!\n')
-    #name = prompt.string('May I have your name? ') 
+
+    run()
 
 if __name__ == "__main__":
     main() # Вызов основной функции

@@ -1,0 +1,41 @@
+{
+    "personal25": {
+        "columns": {
+            "id": "int",
+            "name": "str",
+            "second_name": "str",
+            "family": "str",
+            "age": "int"
+        }
+    },
+    "personal26": {
+        "columns": {
+            "id": "int",
+            "name": "str",
+            "second_name": "str",
+            "family": "str",
+            "age": "int"
+        }
+    },
+    "personal-10": {
+        "columns": {
+            "id": "int",
+            "name": "str",
+            "second_name": "str",
+            "family": "str",
+            "age": "int",
+            "sex": "str"
+        }
+    },
+    "personal-20": {
+        "columns": {
+            "id": "int",
+            "name": "str",
+            "second_name": "str",
+            "family": "str",
+            "age": "int",
+            "sex": "str",
+            "prof": "str"
+        }
+    }
+}
