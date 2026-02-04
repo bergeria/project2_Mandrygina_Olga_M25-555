@@ -1,0 +1,66 @@
+[
+    {
+        "ID": 2,
+        "name": "Ivan02",
+        "family": "Ivanov02",
+        "job_title": "engineer",
+        "age": 30,
+        "marital": false
+    },
+    {
+        "ID": 4,
+        "name": "Ivan04",
+        "family": "Ivanov04",
+        "job_title": "chief01",
+        "age": 35,
+        "marital": true
+    },
+    {
+        "ID": 8,
+        "name": "Ivan08",
+        "family": "Ivanov08",
+        "job_title": "chief03",
+        "age": 36,
+        "marital": true
+    },
+    {
+        "ID": 9,
+        "name": "Ivan09",
+        "family": "Ivanov09",
+        "job_title": "chief03",
+        "age": 36,
+        "marital": true
+    },
+    {
+        "ID": 10,
+        "name": "Ivan10",
+        "family": "Ivanov10",
+        "job_title": "chief03",
+        "age": 36,
+        "marital": false
+    },
+    {
+        "ID": 11,
+        "name": "Ivan11",
+        "family": "Ivanov11",
+        "job_title": "chief04",
+        "age": 36,
+        "marital": true
+    },
+    {
+        "ID": 12,
+        "name": "Ivan12",
+        "family": "Ivanov12",
+        "job_title": "chief04",
+        "age": 36,
+        "marital": false
+    },
+    {
+        "ID": 13,
+        "name": "Ivan13",
+        "family": "Ivanov13",
+        "job_title": "chief05",
+        "age": 37,
+        "marital": true
+    }
+]

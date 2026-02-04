@@ -1,153 +1,182 @@
 #Этот файл будет отвечать за запуск, игровой цикл и парсинг команд.
 
-import shlex
+import os
+from typing import Any, Callable
 
 import prompt
-from core import create_table, drop_table, list_tables
-from utils import load_metadata, save_metadata
+
+from src.constants import COMMANDS, DATA_DIR, METADATA_JSON
+from src.primitive_db.core import (
+    create_table,
+    delete_from,
+    drop_table,
+    insert,
+    list_tables,
+    select_from_cached,
+    table_info,
+    update_table,
+)
+from src.primitive_db.parser import parse_command
+from src.primitive_db.utils import load_metadata, print_list, save_metadata
 
 
 # src/primitive_db/engine.py
 def print_help():
     """Prints the help message for the current mode."""
-   
-    print("\n***Процесс работы с таблицей***")
-    print("Функции:")
-    print("<command> create_table <имя_таблицы> <столбец1:тип> .. - создать таблицу")
-    print("<command> list_tables - показать список всех таблиц")
-    print("<command> drop_table <имя_таблицы> - удалить таблицу")
-    
-    print("\nОбщие команды:")
-    print("<command> exit - выход из программы")
-    print("<command> help - справочная информация\n") 
+    for help_str in COMMANDS:
+        print(help_str)
 
 
-def welcome ():
-    pass
+def create_cacher():
+    """
+    Возвращает функцию cache_result(key, value_func),
+    у которой есть метод clear().
+    """
+    cache: dict[Any, Any] = {}
 
+    def cache_result(key: Any, value_func: Callable[[], Any]) -> Any:
+        if key in cache:
+            return cache[key]
 
-def parse_command( command_line: str) -> dict:
-    tokens = shlex.split(command_line)
+        value = value_func()
+        cache[key] = value
+        return value
 
-    if not tokens:
-        raise ValueError("Пустая команда")
+    def clear(prefix: Any | None = None) -> None:
+        """
+        clear()              -> очистить весь кэш
+        clear(prefix)        -> очистить записи, ключи которых начинаются с prefix
+                                (например, prefix=("select", "users"))
+        """
+        nonlocal cache
 
-    match tokens:
-        # create_table имя_таблицы col:type col:type ...
-        case ["create_table", table_name, *cols] if cols:
-            columns = {}
+        if prefix is None:
+            cache.clear()
+            return
 
-            for col in cols:
-                if ":" not in col:
-                    raise ValueError(f"Неверное описание столбца: {col}")
+        keys_to_delete = [k for k in cache if isinstance(k, tuple)
+                          and k[:len(prefix)] == prefix]
+        for k in keys_to_delete:
+            del cache[k]
 
-                name, col_type = col.split(":", 1)
-                columns[name] = col_type
+    # "прикручиваем" метод к функции
+    cache_result.clear = clear
 
-            return {
-                "command": "create_table",
-                "table_name": table_name,
-                "columns": columns,
-            }
+    return cache_result
 
-        # list_tables
-        case ["list_tables"]:
-            return {
-                "command": "list_tables"
-            }
-
-        # drop_table имя_таблицы
-        case ["drop_table", table_name]:
-            return {
-                "command": "drop_table",
-                "table_name": table_name,
-            }
-
-        # create_table без столбцов
-        case ["create_table", *_]:
-            raise ValueError(
-                "Формат: create_table <имя_таблицы> <столбец:тип> [столбец:тип] ..."
-            )
-
-        case ["exit"]:
-            return {
-                "command": "exit"
-            }
-
-        case ["help"]:
-            return {
-                "command": "help"
-            }
-        # неизвестная команда
-        case [command, *_]:
-            raise ValueError(f"Неизвестная команда: {command}")
-
-
-#Заготовка
-def process_command( command : dict) -> None:
-    pass
+    # Конец create_cacher
 
 
 def run ():
     """Основной цикл"""
 
     c_line = ''
+    cache_result = create_cacher()
+
+    meta_file = os.path.join( os.getcwd(), DATA_DIR, METADATA_JSON)
 
     while c_line != 'exit' :
         # Запрашиваем ввод у пользователя.
-        c_line = prompt.string('Введите команду - ')
+        c_line = prompt.string('\nВведите команду - ')
 
         try : # Разбирайте строку на команду и аргументы.
             command = parse_command( c_line)
         except ValueError as e :
-            print(f"Ошибка в параметрах {e} !!!")
+            print(f"Ошибка - {e} !!!")
             continue
 
         # Загружаем метаданные
-        metadata = load_metadata("db_meta.json")
+        metadata = load_metadata( meta_file)
 
-        try :
-            match command["command"]:
-                case "create_table":
-                    create_table(metadata,
-                                 command["table_name"],
-                                 command["columns"]
-                    )
-                    print(f' Таблица {command["table_name"]}\n'
-                          f' со столбцами {command["columns"]}\n'
-                          f' успешно создана\n')
+        match command["command"]:
+            case "create_table":
+                # Изменяем состав db_meta.json
+                create_table(metadata,
+                             command["table_name"],
+                             command["columns"]
+                )
+                # сохраняем метаданные. Если не было исключений ???
+                # хотя исключения суда не дойдут - они теперь обрабатываются раньше
+                save_metadata( meta_file, metadata)
 
-                case "drop_table":
-                    metadata = load_metadata("db_meta.json")
-                    drop_table(metadata, command["table_name"])
-                    print(f"Таблица - {command["table_name"]} - удалена\n")
+            case "drop_table":
+                # Удаляем таблицу - изменяем состав db_meta.json, удаляем файл
+                drop_table(metadata, command["table_name"])
+                # сохраняем метаданные. Если не было исключений ???
+                # хотя исключения суда не дойдут - они теперь обрабатываются раньше
+                save_metadata( meta_file, metadata)
+                # Очищаем кеш
+                cache_result.clear( ("select", command["table_name"]))
 
-                case "list_tables":
-                    tables = list_tables( metadata)
-                    if not tables:
-                        print("Таблиц нет")
-                    else:
-                        for name in tables:
-                            print(name)
+            case "list_tables": # list_tables - вывести список таблиц
+                tables = list_tables( metadata)
+                if not tables:
+                    print("Таблиц нет")
+                else:
+                    for name in tables:
+                        print(name)
+
+            case "insert":
+                # insert Изменяем состав таблицы
+                insert( metadata, command["table_name"], command["values"])
+                # Очищаем кеш
+                cache_result.clear( ("select", command["table_name"]))
+
+            case "info": # info имя_таблицы - вывести информацию о таблице
+                table_info( metadata, command["table_name"])
+
+            case "select": # select делаем выборку из таблицы
+#                s_from = select_from( metadata,
+#                                    command["table_name"],
+#                                    command["where"])
+                s_form = select_from_cached( metadata,
+                                             command["table_name"],
+                                             command["where"],
+                                             cache_result)
+                # Выводим результат
+                print_list( s_form)
+
+            case "update":
+                # update Изменяем состав таблицы
+                change_list = update_table( metadata,
+                                            command["table_name"],
+                                            command["set"],
+                                            command["where"])
+                if len(change_list) == 0 or change_list is None:
+                    print(f'Записи с условием {command["where"]}'
+                          f' - не найдены !!!')
                     continue
+                print( f'\nСписок измененных записей по условию '
+                       f'{command["where"]}\n -')
+                # Очищаем кеш
+                cache_result.clear( ("select", command["table_name"]))
+                print_list( change_list)
 
-                case "help":
-                    print_help()
+            case "delete":
+                # delete Изменяем состав таблицы
+                deleted_list = delete_from( metadata,
+                                            command["table_name"],
+                                            command["where"])
+                if len(deleted_list) == 0 or deleted_list is None :
+                    print(f'Записи с условием {command["where"]}'
+                          f' - не найдены !!!')
                     continue
+                print( f'\nСписок удаленных записей по условию '
+                       f'{command["where"]}\n -')
+                # Очищаем кеш
+                cache_result.clear( ("select", command["table_name"]))
+                print_list( deleted_list)
 
-                case "exit":
-                    break
+            case "help":
+                print_help()
 
-                case _:
-                    print("Команда не опознана !!!")
-                    continue
+            case "exit":
+                break
 
-        except ValueError as e:
-            print(f"Ошибка -  {e}!!!")
-            continue
+            case _:
+                print("Команда не опознана !!!")
 
-        # Если не было исключений - сохраняем метаданные
-        save_metadata("db_meta.json", metadata)
+
 
 
 

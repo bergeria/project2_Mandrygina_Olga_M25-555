@@ -1,0 +1,12 @@
+{
+    "users": {
+        "columns": {
+            "ID": "int",
+            "name": "str",
+            "family": "str",
+            "job_title": "str",
+            "age": "int",
+            "marital": "bool"
+        }
+    }
+}
